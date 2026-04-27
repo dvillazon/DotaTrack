@@ -7,11 +7,114 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  PLAYER
+  VIEWER
+}
+
+enum Format {
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+}
+
+enum Status {
+  REGISTRATION
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum Bracket {
+  UPPER
+  LOWER
+  GRAND_FINAL
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String
   email     String   @unique
   googleId  String   @unique
   avatar    String?
+  role      Role     @default(VIEWER)
   createdAt DateTime @default(now())
+
+tournaments  Tournament[]
+  teamPlayers  TeamPlayer[]
+  captainOf    Team[]      @relation("TeamCaptain")
+}
+
+model Tournament {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  format      Format
+  bestOf      Int      @default(3)
+maxTeams    Int      @default(8)
+  teamSlots   Int      @default(8)
+  status      Status   @default(REGISTRATION)
+  startDate   DateTime
+  createdAt   DateTime @default(now())
+
+  creatorId   String
+  creator     User     @relation(fields: [creatorId], references: [id])
+  teams       Team[]
+  matches     Match[]
+}
+
+model Team {
+  id           String @id @default(uuid())
+  name         String
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  captainId    String?
+  captain      User?  @relation("TeamCaptain", fields: [captainId], references: [id])
+  players      TeamPlayer[]
+  matchesAsTeam1 Match[] @relation("Team1")
+  matchesAsTeam2 Match[] @relation("Team2")
+  winsAsTeam1  Match[] @relation("WinnerTeam")
+}
+
+model TeamPlayer {
+  id     String @id @default(uuid())
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id])
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+  slot   Int
+}
+
+model Match {
+  id           String   @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+
+  bracket      Bracket
+  round        Int
+  matchNumber  Int
+
+  team1Id      String?
+  team1        Team?    @relation("Team1", fields: [team1Id], references: [id])
+  team2Id      String?
+team2        Team?    @relation("Team2", fields: [team2Id], references: [id])
+
+  winnerId     String?
+  winner       Team?    @relation("WinnerTeam", fields: [winnerId], references: [id])
+
+  status       String   @default("PENDING")
+  matchId      String?
+
+  bestOf       Int
+  games        MatchGame[]
+}
+
+model MatchGame {
+  id             String @id @default(uuid())
+  matchId        String
+  match          Match  @relation(fields: [matchId], references: [id])
+  gameNumber     Int
+  radiantTeamId  String?
+  direTeamId     String?
+  radiantWinner  Boolean?
 }
